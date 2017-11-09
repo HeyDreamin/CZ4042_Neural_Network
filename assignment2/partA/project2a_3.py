@@ -1,7 +1,6 @@
 from load import mnist
 import numpy as np
-import pylab 
-
+import matplotlib.pyplot as plt
 import theano
 from theano import tensor as T
 from theano.tensor.nnet import conv2d
@@ -94,14 +93,12 @@ teX, teY = teX[:2000], teY[:2000]
 X = T.tensor4('X')
 Y = T.matrix('Y')
 
-np.random.seed(10)
 batch_size = 128
 learning_rate = 0.001
 decay = 1e-4
-epochs = 100
-momentum = 0.1
 rho=0.9
 epsilon=1e-6
+epochs = 100
 
 num_filters_1 = 15
 num_filters_2 = 20
@@ -128,65 +125,88 @@ test1 = theano.function(inputs = [X], outputs=[y1, o1], allow_input_downcast=Tru
 test2 = theano.function(inputs = [X], outputs=[y2, o2], allow_input_downcast=True)
 
 a = []
+costA = []
 for i in range(epochs):
 	trX, trY = shuffle_data (trX, trY)
 	teX, teY = shuffle_data (teX, teY)
+	cost = 0.0
 	for start, end in zip(range(0, len(trX), batch_size), range(batch_size, len(trX), batch_size)):
-		cost = train(trX[start:end], trY[start:end])
-	a.append(np.mean(np.argmax(teY, axis=1) == predict(teX)))
+		cost = np.append(cost, train(trX[start:end], trY[start:end]))
+	costA = np.append(costA, np.mean(cost))
+	a = np.append(a, np.mean(np.argmax(teY, axis=1) == predict(teX)))
 	print('No.%2d Accuracy = %f'%(i+1,a[i]))
 
-pylab.figure()
-pylab.plot(range(epochs), a)
-pylab.xlabel('epochs')
-pylab.ylabel('test accuracy')
-pylab.savefig('figure_2a_1.png')
+mypath = '2a_3/'
+plt.figure()
+plt.plot(range(epochs), a)
+plt.xlabel('epochs')
+plt.ylabel('test accuracy')
+ymax = a.max()
+xmax = np.argmax(a)+1
+text= "Test accuracy max={:.3f}, epoch={:}".format(ymax, xmax)
+bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
+arrowprops=dict(arrowstyle="->",connectionstyle="arc3, rad=0")
+kw = dict(xycoords='data',textcoords="axes fraction",
+		  arrowprops=arrowprops, bbox=bbox_props, ha="right", va="center")
+plt.gca().annotate(text, xy=(xmax,ymax), xytext=(0.94,0.6), **kw)
+plt.savefig(mypath+'test_accuracy.png')
 
-w = w1.get_value()
-pylab.figure()
-pylab.gray()
-for i in range(15):
-	pylab.subplot(5, 5, i+1); pylab.axis('off'); pylab.imshow(w[i,:,:,:].reshape(9,9))
-#pylab.title('filters learned')
-pylab.savefig('figure_2a_2.png')
+plt.figure()
+plt.plot(range(epochs), costA)
+plt.xlabel('epochs')
+plt.ylabel('training cost')
+ymin = costA.min()
+xmin = np.argmin(costA)+1
+text= "Train cost min={:.3f}, epoch={:}".format(ymin, xmin)
+bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=0.72)
+arrowprops=dict(arrowstyle="->",connectionstyle="arc3, rad=0")
+kw = dict(xycoords='data',textcoords="axes fraction",
+		  arrowprops=arrowprops, bbox=bbox_props, ha="right", va="center")
+plt.gca().annotate(text, xy=(xmin,ymin), xytext=(0.94,0.6), **kw)
+plt.savefig(mypath+'training_cost.png')
+
+def testplot(conv1, pool1, conv2, pool2, prefix):
+	mypath = '2a_3/'+prefix+'/'
+	plt.figure()
+	plt.gray()
+	plt.axis('off'); plt.imshow(teX[ind,:].reshape(28,28))
+	#plt.title('input image')
+	plt.savefig(mypath+'input.png')
+
+	plt.figure()
+	plt.gray()
+	plt.title('1st convolved feature maps')
+	for i in range(15):
+		plt.subplot(5, 5, i+1); plt.axis('off'); plt.imshow(conv1[0,i,:].reshape(20,20))
+	plt.savefig(mypath+'conv1.png')
+
+	plt.figure()
+	plt.gray()
+	plt.title('1st pooled feature maps')
+	for i in range(15):
+		plt.subplot(5, 5, i+1); plt.axis('off'); plt.imshow(pool1[0,i,:].reshape(10,10))
+	plt.savefig(mypath+'pool1.png')
+
+	plt.figure()
+	plt.gray()
+	plt.title('2nd convolved feature maps')
+	for i in range(20):
+		plt.subplot(5, 5, i+1); plt.axis('off'); plt.imshow(conv2[0,i,:].reshape(6,6))
+	plt.savefig(mypath+'conv2.png')
+
+	plt.figure()
+	plt.gray()
+	plt.title('2nd pooled feature maps')
+	for i in range(20):
+		plt.subplot(5, 5, i+1); plt.axis('off'); plt.imshow(pool2[0,i,:].reshape(3,3))
+	plt.savefig(mypath+'pool2.png')
 
 ind = np.random.randint(low=0, high=2000)
-convolved, pooled = test1(teX[ind:ind+1,:])
+convolved1, pooled1 = test1(teX[ind:ind+1,:])
+convolved2, pooled2 = test2(teX[ind:ind+1,:])
+testplot(convolved1, pooled1, convolved2, pooled2, prefix='input1')
 
-pylab.figure()
-pylab.gray()
-pylab.axis('off'); pylab.imshow(teX[ind,:].reshape(28,28))
-#pylab.title('input image')
-pylab.savefig('input.png')
-
-pylab.figure()
-pylab.gray()
-for i in range(15):
-	pylab.subplot(5, 5, i+1); pylab.axis('off'); pylab.imshow(convolved[0,i,:].reshape(20,20))
-#pylab.title('convolved feature maps')
-pylab.savefig('conv1.png')
-
-pylab.figure()
-pylab.gray()
-for i in range(10):
-	pylab.subplot(5, 5, i+1); pylab.axis('off'); pylab.imshow(pooled[0,i,:].reshape(10,10))
-#pylab.title('pooled feature maps')
-pylab.savefig('pool1.png')
-
-convolved, pooled = test2(teX[ind:ind+1,:])
-
-pylab.figure()
-pylab.gray()
-for i in range(20):
-	pylab.subplot(5, 5, i+1); pylab.axis('off'); pylab.imshow(convolved[0,i,:].reshape(6,6))
-#pylab.title('convolved feature maps')
-pylab.savefig('conv2.png')
-
-pylab.figure()
-pylab.gray()
-for i in range(6):
-	pylab.subplot(5, 5, i+1); pylab.axis('off'); pylab.imshow(pooled[0,i,:].reshape(3,3))
-#pylab.title('pooled feature maps')
-pylab.savefig('pool2.png')
-
-# pylab.show()
+ind = np.random.randint(low=0, high=2000)
+convolved1, pooled1 = test1(teX[ind:ind+1,:])
+convolved2, pooled2 = test2(teX[ind:ind+1,:])
+testplot(convolved1, pooled1, convolved2, pooled2, prefix='input2')
